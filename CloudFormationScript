@@ -1,0 +1,73 @@
+Description: Create Launch config, asg, listener, load balancer, target group, route53
+
+Mappings:
+  RegionMap:
+    ap-southeast-2:
+      AMI: ami-39f8215b
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  AbsEc2LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0814ad1e4bdaeb148
+      InstanceType: t2.micro
+      UserData: "IyEvYmluL2Jhc2gKYXdzIHMzIGNwIC0tcmVjdXJzaXZlIHMzOi8vYWJieXMtY29vbC1idWNrZXQvIC9ob21lL2VjMi11c2VyCi91c3IvYmluL2RvdG5ldCAvaG9tZS9lYzItdXNlci9wdWJsaXNoL2VjMldlYnNpdGUuZGxsIC0tdXJscyBodHRwOi8vKjo1MDAwICY="
+      SecurityGroups:
+        - sg-06b1c7796f9dd7784
+      KeyName: !Ref KeyName
+      IamInstanceProfile: abby-iam-role
+  AbsASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: AbsASG
+      AvailabilityZones:
+        - ap-southeast-2a
+      MaxSize: 1
+      MinSize: 0
+      DesiredCapacity: 1
+      LaunchConfigurationName:
+        Ref: AbsEc2LaunchConfig
+  AbsELB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Type: application
+      Name: AbsLoadBalancer
+      Scheme: internet-facing
+      SecurityGroups:
+        - sg-06b1c7796f9dd7784
+      Subnets:
+        - "subnet-c1deafa6"
+        - "subnet-007a1849"
+  AbsHTTPlistener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+     DefaultActions:
+       - Type: "forward"
+         TargetGroupArn: !Ref AbsTG
+     LoadBalancerArn: !Ref AbsELB
+     Port: 5000
+     Protocol: "HTTP"
+  AbsTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: AbsTargetGroup
+      Port: 5000
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: vpc-ce09b8a9
+  AbsRoute53:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: Abs.saish.xyz.
+      Type: A
+      HostedZoneId: Z3BVGSTHYNIRYT
+      AliasTarget:
+        HostedZoneId: !GetAtt AbsELB.CanonicalHostedZoneID
+        DNSName: !GetAtt AbsELB.DNSName
+        EvaluateTargetHealth: false
